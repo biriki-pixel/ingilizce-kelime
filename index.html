@@ -4,39 +4,13 @@
 <meta charset="UTF-8">
 <title>İngilizce Kelime Oyunu</title>
 <style>
-body {
-  font-family: Arial, sans-serif;
-  background: #f4f7fb;
-  text-align: center;
-  padding: 20px;
-}
-.hidden { display:none; }
-button {
-  padding: 10px 20px;
-  margin: 5px;
-  font-size: 18px;
-  cursor: pointer;
-}
-.option {
-  display: block;
-  width: 60%;
-  margin: 10px auto;
-}
-.correct { background:#4caf50; color:#fff; }
-.wrong { background:#f44336; color:#fff; }
-#emoji { font-size:40px; }
-.panel {
-  background:#fff;
-  padding:15px;
-  border-radius:10px;
-  max-width:500px;
-  margin:auto;
-}
-#secret {
-  font-size:30px;
-  cursor:pointer;
-  user-select:none;
-}
+body{font-family:Arial;background:#f4f7fb;text-align:center;padding:20px}
+.hidden{display:none}
+.panel{background:#fff;padding:15px;border-radius:10px;max-width:500px;margin:auto}
+button{padding:10px 20px;font-size:18px;margin:5px}
+.option{display:block;width:60%;margin:10px auto}
+.correct{background:#4caf50;color:#fff}
+.wrong{background:#f44336;color:#fff}
 </style>
 </head>
 
@@ -44,22 +18,19 @@ button {
 
 <h1>🧒 İngilizce Kelime Oyunu</h1>
 
-<!-- BAŞLANGIÇ -->
+<!-- MENU -->
 <div id="menu" class="panel">
-  <div id="secret" title="Ebeveyn" onclick="goPanel()">🙂</div>
-
   <h3>🔢 Soru Sayısı</h3>
   <select id="limitSelect">
     <option value="25">25</option>
     <option value="35">35</option>
     <option value="50">50</option>
   </select>
-
   <br><br>
   <button onclick="startGame()">▶️ Başla</button>
 </div>
 
-<!-- OYUN -->
+<!-- QUIZ -->
 <div id="quiz" class="panel hidden">
   <div id="counter"></div>
   <h2 id="question"></h2>
@@ -67,174 +38,149 @@ button {
   <div id="emoji"></div>
 </div>
 
-<!-- İSTATİSTİK -->
+<!-- STATS -->
 <div id="stats" class="panel hidden">
   <h2>📊 Oyun Sonu</h2>
   <p id="statsText"></p>
-  <button onclick="restart()">▶️ Tekrar Başla</button>
+  <button onclick="startGame()">▶️ Tekrar Başla</button>
   <button onclick="goMenu()">🏠 Menü</button>
 </div>
 
-<!-- EBEVEYN PANELİ -->
+<!-- PARENT -->
 <div id="parent" class="panel hidden">
   <h2>🔐 Ebeveyn Paneli</h2>
   <input id="pin" type="password" placeholder="PIN (1234)">
   <button onclick="checkPin()">Giriş</button>
 
   <div id="parentPanel" class="hidden">
-    <h3>➕ Kelime Ekle</h3>
     <input id="en" placeholder="English">
     <input id="tr" placeholder="Türkçe">
-    <button onclick="addWord()">Ekle</button>
+    <button onclick="addWord()">Kelime Ekle</button>
     <br><br>
     <button onclick="goMenu()">⬅️ Menü</button>
   </div>
 </div>
 
-<audio id="clap">
-  <source src="https://www.soundjay.com/human/applause-8.mp3">
-</audio>
+<!-- FIREBASE -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 
 <script>
-/* ===== DATA ===== */
-let words = JSON.parse(localStorage.getItem("words")) || [
-  {en:"apple", tr:"elma"},
-  {en:"cat", tr:"kedi"},
-  {en:"book", tr:"kitap"}
-];
-let progress = JSON.parse(localStorage.getItem("progress")) || {};
-let limit = 25;
-let count = 0, correctTotal = 0, wrongTotal = 0;
-let current;
+/* 🔥 FIREBASE CONFIG — BURAYA KENDİ BİLGİNİ KOY */
+const firebaseConfig = {
+  apiKey: "AIzaSyB8n3un1uE6TK-9actPFldoFjjIcOMA94c",
+  authDomain: "kelimeler-2405a.firebaseapp.com",
+  databaseURL: "https://kelimeler-2405a-default-rtdb.firebaseio.com",
+  projectId: "kelimeler-2405a",
+  storageBucket: "kelimeler-2405a.appspot.com",
+  messagingSenderId: "379474976160",
+  appId: "1:379474976160:web:e888b63af4f5d871af58c5",
+  measurementId: "G-FM3L80E3FE"
+};
+const db = firebase.firestore();
 
-/* ===== ROUTING ===== */
-function route() {
+/* DATA */
+let words=[], progress=JSON.parse(localStorage.getItem("progress"))||{};
+let limit=25,count=0,correct=0,wrong=0,current;
+
+/* ROUTE */
+function route(){
   hideAll();
-  if (location.pathname.endsWith("/panel")) {
-    document.getElementById("parent").classList.remove("hidden");
-  } else {
-    document.getElementById("menu").classList.remove("hidden");
-  }
+  if(location.pathname.endsWith("/panel")) parent.classList.remove("hidden");
+  else menu.classList.remove("hidden");
 }
-window.onpopstate = route;
+window.onpopstate=route;
 
-/* ===== NAV ===== */
-function goPanel() {
-  history.pushState({}, "", "panel");
-  route();
-}
-function goMenu() {
-  history.pushState({}, "", "./");
-  route();
-}
+/* LOAD WORDS */
+db.collection("words").onSnapshot(snap=>{
+  words=snap.docs.map(d=>d.data());
+});
 
-/* ===== GAME ===== */
-function startGame() {
-  limit = parseInt(document.getElementById("limitSelect").value);
-  count = correctTotal = wrongTotal = 0;
-  hideAll();
-  document.getElementById("quiz").classList.remove("hidden");
-  nextQuestion();
+/* GAME */
+function startGame(){
+  limit=+limitSelect.value;
+  count=correct=wrong=0;
+  hideAll();quiz.classList.remove("hidden");
+  next();
 }
 
-function nextQuestion() {
-  if (count >= limit) return showStats();
-
-  let pool = words.filter(w => !(progress[w.en]?.done));
-  if (!pool.length) return showStats();
-
-  current = pool[Math.floor(Math.random()*pool.length)];
+function next(){
+  if(count>=limit) return statsShow();
+  let pool=words.filter(w=>!progress[w.en]?.done);
+  if(!pool.length) return statsShow();
+  current=pool[Math.floor(Math.random()*pool.length)];
   count++;
 
-  let askEn = Math.random() > 0.5;
-  let question = askEn ? current.en : current.tr;
-  let answer = askEn ? current.tr : current.en;
+  let askEn=Math.random()>0.5;
+  let q=askEn?current.en:current.tr;
+  let a=askEn?current.tr:current.en;
 
-  let options = [answer];
-  while (options.length < 3) {
-    let w = words[Math.floor(Math.random()*words.length)];
-    let o = askEn ? w.tr : w.en;
-    if (!options.includes(o)) options.push(o);
+  let opts=[a];
+  while(opts.length<3){
+    let w=words[Math.floor(Math.random()*words.length)];
+    let o=askEn?w.tr:w.en;
+    if(!opts.includes(o)) opts.push(o);
   }
-  options.sort(()=>Math.random()-0.5);
+  opts.sort(()=>Math.random()-0.5);
 
-  document.getElementById("counter").innerText = `Soru: ${count}/${limit}`;
-  document.getElementById("question").innerText = question;
-  document.getElementById("emoji").innerText = "";
-
-  let optDiv = document.getElementById("options");
-  optDiv.innerHTML = "";
-  options.forEach(o=>{
+  counter.innerText=`Soru ${count}/${limit}`;
+  question.innerText=q;emoji.innerText="";
+  options.innerHTML="";
+  opts.forEach(o=>{
     let b=document.createElement("button");
-    b.className="option";
-    b.innerText=o;
-    b.onclick=()=>check(o,answer);
-    optDiv.appendChild(b);
+    b.className="option";b.innerText=o;
+    b.onclick=()=>check(o,a);
+    options.appendChild(b);
   });
 }
 
-function check(sel, ans) {
+function check(sel,ans){
   document.querySelectorAll(".option").forEach(b=>{
-    if (b.innerText===ans) b.classList.add("correct");
-    if (b.innerText===sel && sel!==ans) b.classList.add("wrong");
+    if(b.innerText===ans)b.classList.add("correct");
+    if(b.innerText===sel&&sel!==ans)b.classList.add("wrong");
     b.disabled=true;
   });
 
   progress[current.en]=progress[current.en]||{correct:0};
-
-  if (sel===ans) {
-    correctTotal++;
+  if(sel===ans){
+    correct++;emoji.innerText="🎉";
     progress[current.en].correct++;
-    document.getElementById("emoji").innerText="🎉👏";
-    document.getElementById("clap").play();
-    if (progress[current.en].correct>=5) progress[current.en].done=true;
-  } else {
-    wrongTotal++;
-    document.getElementById("emoji").innerText="😅";
-  }
-
-  save();
-  setTimeout(nextQuestion,1500);
+    if(progress[current.en].correct>=5)progress[current.en].done=true;
+  }else{wrong++;emoji.innerText="😅"}
+  save();setTimeout(next,1500);
 }
 
-function showStats() {
-  hideAll();
-  document.getElementById("stats").classList.remove("hidden");
-  let learned = Object.values(progress).filter(p=>p.done).length;
-  document.getElementById("statsText").innerHTML =
-    `✅ Doğru: ${correctTotal}<br>
-     ❌ Yanlış: ${wrongTotal}<br>
-     🧠 Öğrenilen kelime: ${learned}`;
+function statsShow(){
+  hideAll();stats.classList.remove("hidden");
+  let learned=Object.values(progress).filter(p=>p.done).length;
+  statsText.innerHTML=
+    `✅ Doğru: ${correct}<br>
+     ❌ Yanlış: ${wrong}<br>
+     🧠 Öğrenilen: ${learned}`;
 }
 
-function restart(){ startGame(); }
-
-/* ===== PARENT ===== */
+/* PARENT */
 function checkPin(){
-  if (document.getElementById("pin").value==="1234")
-    document.getElementById("parentPanel").classList.remove("hidden");
+  if(pin.value==="1234")parentPanel.classList.remove("hidden");
   else alert("Yanlış PIN");
 }
-
 function addWord(){
-  let en=document.getElementById("en").value.trim();
-  let tr=document.getElementById("tr").value.trim();
-  if(!en||!tr)return;
-  words.push({en,tr});
-  save();
-  alert("Kelime eklendi");
+  if(!en.value||!tr.value)return;
+  db.collection("words").add({en:en.value,tr:tr.value});
+  en.value=tr.value="";
 }
 
-/* ===== UTIL ===== */
+/* UTIL */
 function save(){
-  localStorage.setItem("words",JSON.stringify(words));
   localStorage.setItem("progress",JSON.stringify(progress));
+}
+function goMenu(){
+  history.pushState({},"","/");
+  route();
 }
 function hideAll(){
   document.querySelectorAll(".panel").forEach(p=>p.classList.add("hidden"));
 }
-
-/* INIT */
 route();
 </script>
 
