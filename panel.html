@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<title>Ebeveyn Paneli</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<style>
+body {
+  font-family: Arial, sans-serif;
+  background:#f4f6fb;
+  padding:20px;
+}
+h1 { text-align:center; }
+input, button {
+  padding:10px;
+  font-size:16px;
+  margin:5px 0;
+  width:100%;
+}
+button {
+  background:#4CAF50;
+  color:#fff;
+  border:none;
+  border-radius:6px;
+}
+ul {
+  list-style:none;
+  padding:0;
+}
+li {
+  background:#fff;
+  padding:10px;
+  margin:5px 0;
+  border-radius:6px;
+}
+</style>
+</head>
+
+<body>
+
+<h1>🔐 Ebeveyn Paneli</h1>
+
+<input id="en" placeholder="İngilizce kelime">
+<input id="tr" placeholder="Türkçe anlamı">
+<button onclick="addWord()">Kelime Ekle</button>
+
+<hr>
+
+<ul id="list"></ul>
+
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
+<script>
+// 🔴 index.html'den AYNEN KOPYALA
+const firebaseConfig = {
+  apiKey: "API_KEY",
+  authDomain: "PROJECT_ID.firebaseapp.com",
+  databaseURL: "https://PROJECT_ID-default-rtdb.firebaseio.com",
+  projectId: "PROJECT_ID",
+  storageBucket: "PROJECT_ID.appspot.com",
+  messagingSenderId: "SENDER_ID",
+  appId: "APP_ID"
+};
+
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+function addWord() {
+  const en = document.getElementById("en").value.trim();
+  const tr = document.getElementById("tr").value.trim();
+  if (!en || !tr) return;
+
+  db.ref("words").push({
+    en,
+    tr
+  });
+
+  document.getElementById("en").value = "";
+  document.getElementById("tr").value = "";
+}
+
+function loadWords() {
+  db.ref("words").on("value", snap => {
+    const list = document.getElementById("list");
+    list.innerHTML = "";
+    snap.forEach(s => {
+      const w = s.val();
+      const li = document.createElement("li");
+      li.textContent = `${w.en} → ${w.tr}`;
+      list.appendChild(li);
+    });
+  });
+}
+
+loadWords();
+</script>
+
+</body>
+</html>
